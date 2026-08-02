@@ -261,12 +261,19 @@ input:focus-visible {
   line-height: 1;
 }
 
+.tools-button.has-active-tool {
+  border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  background: var(--green-soft);
+}
+
 .tool-panel {
   position: absolute;
   z-index: 1100;
   top: calc(100% + 14px);
   right: 0;
   width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 105px);
+  overflow-y: auto;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -292,6 +299,28 @@ input:focus-visible {
   border: 2px dashed #7665e8;
   border-radius: 8px;
   background: color-mix(in srgb, #7665e8 9%, transparent);
+}
+
+.selection-tool-icon {
+  display: block;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 2px solid var(--green);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+}
+
+.tool-divider {
+  height: 1px;
+  margin: 18px 0;
+  background: var(--border);
+}
+
+.selection-start {
+  width: 100%;
 }
 
 .tool-panel h2 {
@@ -436,11 +465,60 @@ input:focus-visible {
 
 .coordinate-hud,
 .grid-legend,
+.selection-toolbar,
 .inspector {
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
+}
+
+.selection-toolbar {
+  position: absolute;
+  z-index: 850;
+  top: 92px;
+  left: 50%;
+  display: flex;
+  max-width: calc(100vw - 360px);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 12px;
+  border-radius: 12px;
+  transform: translateX(-50%);
+}
+
+.selection-toolbar[hidden] {
+  display: none;
+}
+
+.selection-next-color {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.selection-toolbar strong {
+  overflow: hidden;
+  max-width: 430px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-toolbar button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
 }
 
 .coordinate-hud {
@@ -557,6 +635,8 @@ input:focus-visible {
   right: 16px;
   width: 300px;
   min-height: 260px;
+  max-height: calc(100vh - 108px);
+  overflow-y: auto;
   padding: 22px;
   border-radius: 18px;
 }
@@ -614,6 +694,170 @@ input:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
+}
+
+.selections-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.selections-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.selections-heading h3 {
+  margin: 5px 0 0;
+  color: var(--text);
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+
+.selections-heading h3 span {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 10px;
+  vertical-align: 1px;
+}
+
+.selections-heading > button {
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.selections-heading > button:hover:not(:disabled) {
+  background: var(--surface-soft);
+  color: var(--accent);
+}
+
+.selections-heading > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.selections-empty {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.selections-empty[hidden] {
+  display: none;
+}
+
+.selections-list {
+  display: grid;
+  gap: 9px;
+  margin: 13px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selection-item {
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, var(--selection-color) 32%, var(--border));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--selection-color) 7%, var(--surface-soft));
+}
+
+.selection-item-heading,
+.selection-item-name,
+.selection-item-actions {
+  display: flex;
+  align-items: center;
+}
+
+.selection-item-heading {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.selection-item-name {
+  gap: 7px;
+}
+
+.selection-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--selection-color);
+}
+
+.selection-item-name strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.selection-item-actions {
+  gap: 3px;
+}
+
+.selection-item-actions button {
+  height: 25px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.selection-item-actions button:hover {
+  background: var(--surface-solid);
+  color: var(--text);
+}
+
+.selection-item-actions button:last-child {
+  padding: 0 6px;
+  font-size: 15px;
+}
+
+.selection-corners {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 9px 0 0;
+}
+
+.selection-corners div {
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--selection-color) 18%, var(--border));
+}
+
+.selection-corners dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.selection-corners dd {
+  margin: 0;
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .region-heading {
@@ -721,6 +965,15 @@ input:focus-visible {
   filter: drop-shadow(0 0 4px rgba(118, 101, 232, 0.45));
 }
 
+.area-selection,
+.selection-draft {
+  stroke-linejoin: round;
+}
+
+.selection-draft {
+  filter: drop-shadow(0 0 4px rgba(28, 38, 30, 0.22));
+}
+
 .leaflet-control-zoom {
   overflow: hidden;
   margin-right: 332px !important;
@@ -776,6 +1029,12 @@ input:focus-visible {
 
   .tool-panel {
     top: calc(100% + 66px);
+    max-height: calc(100vh - 140px);
+  }
+
+  .selection-toolbar {
+    top: 126px;
+    max-width: calc(100vw - 20px);
   }
 
   .action-button,
@@ -818,6 +1077,7 @@ input:focus-visible {
     left: 10px;
     width: auto;
     min-height: 0;
+    max-height: min(68vh, 560px);
     padding: 18px;
     border-radius: 16px;
     opacity: 0;

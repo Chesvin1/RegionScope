@@ -16,6 +16,15 @@ import { RegionGridLayer } from './grid-layer';
 import { parseSearch } from './search';
 
 type Theme = 'light' | 'dark';
+type SelectionMode = 'idle' | 'awaiting-first' | 'awaiting-second';
+
+interface AreaSelection {
+  id: number;
+  cornerA: CoordinatePair;
+  cornerB: CoordinatePair;
+  color: string;
+  layer: L.Rectangle;
+}
 
 const getElement = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -79,15 +88,140 @@ const worldborderForm = getElement<HTMLFormElement>('worldborder-form');
 const worldborderRadius = getElement<HTMLInputElement>('worldborder-radius');
 const worldborderClear = getElement<HTMLButtonElement>('worldborder-clear');
 const worldborderStatus = getElement<HTMLOutputElement>('worldborder-status');
+const selectionStartButton = getElement<HTMLButtonElement>('selection-start');
+const selectionToolStatus = getElement<HTMLElement>('selection-tool-status');
+const selectionToolbar = getElement<HTMLElement>('selection-toolbar');
+const selectionPrompt = getElement<HTMLElement>('selection-prompt');
+const selectionNextColor = getElement<HTMLElement>('selection-next-color');
+const selectionList = getElement<HTMLOListElement>('selections-list');
+const selectionCount = getElement<HTMLElement>('selection-count');
+const selectionsEmpty = getElement<HTMLElement>('selections-empty');
+const selectionsClearAll = getElement<HTMLButtonElement>('selections-clear-all');
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
 let highlight: L.Rectangle | undefined;
 let blockHighlight: L.Rectangle | undefined;
 let worldBorder: L.Rectangle | undefined;
+let selectionMode: SelectionMode = 'idle';
+let selectionCornerA: CoordinatePair | undefined;
+let selectionDraft: L.Rectangle | undefined;
+let nextSelectionId = 1;
+const selections: AreaSelection[] = [];
 
 const setToolsOpen = (isOpen: boolean): void => {
   toolsPanel.hidden = !isOpen;
   toolsButton.setAttribute('aria-expanded', String(isOpen));
+};
+
+const getSelectionColor = (index: number): string => {
+  const hue = Math.round((index * 137.508 + 8) % 360);
+  return `hsl(${hue} 68% 52%)`;
+};
+
+const getSelectionBounds = (cornerA: CoordinatePair, cornerB: CoordinatePair): L.LatLngBounds => {
+  const minX = Math.min(cornerA.x, cornerB.x);
+  const minZ = Math.min(cornerA.z, cornerB.z);
+  const maxX = Math.max(cornerA.x, cornerB.x);
+  const maxZ = Math.max(cornerA.z, cornerB.z);
+  return L.latLngBounds(blockToLatLng(minX, minZ), blockToLatLng(maxX + 1, maxZ + 1));
+};
+
+const renderSelectionList = (): void => {
+  selectionList.replaceChildren();
+  selectionCount.textContent = String(selections.length);
+  selectionsEmpty.hidden = selections.length > 0;
+  selectionsClearAll.disabled = selections.length === 0;
+
+  selections.forEach((selection, index) => {
+    const item = document.createElement('li');
+    item.className = 'selection-item';
+    item.style.setProperty('--selection-color', selection.color);
+    item.innerHTML = `
+      <div class="selection-item-heading">
+        <div class="selection-item-name">
+          <span class="selection-color" aria-hidden="true"></span>
+          <strong>Selection ${index + 1}</strong>
+        </div>
+        <div class="selection-item-actions">
+          <button type="button" data-selection-action="view" data-selection-id="${selection.id}">View</button>
+          <button type="button" data-selection-action="remove" data-selection-id="${selection.id}" aria-label="Remove Selection ${index + 1}">×</button>
+        </div>
+      </div>
+      <dl class="selection-corners">
+        <div><dt>Corner A</dt><dd>X ${formatCoordinate(selection.cornerA.x)}<br>Z ${formatCoordinate(selection.cornerA.z)}</dd></div>
+        <div><dt>Corner B</dt><dd>X ${formatCoordinate(selection.cornerB.x)}<br>Z ${formatCoordinate(selection.cornerB.z)}</dd></div>
+      </dl>
+    `;
+    selectionList.append(item);
+  });
+};
+
+const updateSelectionModeUi = (): void => {
+  const isActive = selectionMode !== 'idle';
+  selectionToolbar.hidden = !isActive;
+  toolsButton.classList.toggle('has-active-tool', isActive);
+  selectionStartButton.textContent = isActive ? 'Cancel selection tool' : 'Start selecting';
+  selectionNextColor.style.backgroundColor = getSelectionColor(nextSelectionId - 1);
+
+  if (selectionMode === 'awaiting-second' && selectionCornerA) {
+    const message = `Corner A: ${formatPair(selectionCornerA.x, selectionCornerA.z)}. Click corner B.`;
+    selectionPrompt.textContent = message;
+    selectionToolStatus.textContent = message;
+  } else if (selectionMode === 'awaiting-first') {
+    selectionPrompt.textContent = 'Click the first corner of a selection';
+    selectionToolStatus.textContent = 'Active — click the first corner on the map.';
+  } else {
+    selectionToolStatus.textContent = 'No selection tool active.';
+  }
+};
+
+const stopSelectionMode = (): void => {
+  selectionMode = 'idle';
+  selectionCornerA = undefined;
+  if (selectionDraft) {
+    map.removeLayer(selectionDraft);
+    selectionDraft = undefined;
+  }
+  updateSelectionModeUi();
+};
+
+const startSelectionMode = (): void => {
+  selectionMode = 'awaiting-first';
+  selectionCornerA = undefined;
+  if (selectionDraft) {
+    map.removeLayer(selectionDraft);
+    selectionDraft = undefined;
+  }
+  setToolsOpen(false);
+  updateSelectionModeUi();
+};
+
+const addSelection = (cornerA: CoordinatePair, cornerB: CoordinatePair): void => {
+  const color = getSelectionColor(nextSelectionId - 1);
+  const layer = L.rectangle(getSelectionBounds(cornerA, cornerB), {
+    className: 'area-selection',
+    color,
+    fillColor: color,
+    fillOpacity: 0.14,
+    opacity: 0.95,
+    weight: 3,
+    interactive: false,
+  }).addTo(map);
+
+  selections.push({
+    id: nextSelectionId,
+    cornerA: { ...cornerA },
+    cornerB: { ...cornerB },
+    color,
+    layer,
+  });
+  nextSelectionId += 1;
+  worldBorder?.bringToBack();
+  highlight?.bringToFront();
+  blockHighlight?.bringToFront();
+  renderSelectionList();
+  inspector.classList.add('is-open');
+  app.classList.add('inspector-open');
 };
 
 const applyTheme = (): void => {
@@ -200,10 +334,46 @@ map.on('mousemove', (event: L.LeafletMouseEvent) => {
   cursorBlock.textContent = formatPair(block.x, block.z);
   cursorChunk.textContent = formatPair(blockToChunk(block.x), blockToChunk(block.z));
   cursorRegion.textContent = formatPair(blockToRegion(block.x), blockToRegion(block.z));
+
+  if (selectionMode === 'awaiting-second' && selectionCornerA && selectionDraft) {
+    selectionDraft.setBounds(getSelectionBounds(selectionCornerA, block));
+  }
 });
 
 map.on('click', (event: L.LeafletMouseEvent) => {
   const block = latLngToBlock(event.latlng);
+
+  if (selectionMode === 'awaiting-first') {
+    selectionCornerA = { ...block };
+    selectionMode = 'awaiting-second';
+    const color = getSelectionColor(nextSelectionId - 1);
+    selectionDraft = L.rectangle(getSelectionBounds(block, block), {
+      className: 'selection-draft',
+      color,
+      dashArray: '7 6',
+      fillColor: color,
+      fillOpacity: 0.09,
+      opacity: 0.95,
+      weight: 2,
+      interactive: false,
+    }).addTo(map);
+    updateSelectionModeUi();
+    return;
+  }
+
+  if (selectionMode === 'awaiting-second' && selectionCornerA) {
+    const cornerA = selectionCornerA;
+    if (selectionDraft) {
+      map.removeLayer(selectionDraft);
+      selectionDraft = undefined;
+    }
+    addSelection(cornerA, block);
+    selectionCornerA = undefined;
+    selectionMode = 'awaiting-first';
+    updateSelectionModeUi();
+    return;
+  }
+
   const region = getRegionForBlock(block.x, block.z);
   showRegion(region.x, region.z, false, block);
 });
@@ -243,6 +413,52 @@ getElement<HTMLButtonElement>('inspector-close').addEventListener('click', close
 
 toolsButton.addEventListener('click', () => {
   setToolsOpen(toolsPanel.hasAttribute('hidden'));
+});
+
+selectionStartButton.addEventListener('click', () => {
+  if (selectionMode === 'idle') {
+    startSelectionMode();
+  } else {
+    stopSelectionMode();
+  }
+});
+
+getElement<HTMLButtonElement>('selection-cancel').addEventListener('click', stopSelectionMode);
+
+selectionList.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const button = target.closest<HTMLButtonElement>('[data-selection-action]');
+  if (!button) {
+    return;
+  }
+
+  const id = Number(button.dataset.selectionId);
+  const index = selections.findIndex((selection) => selection.id === id);
+  if (index < 0) {
+    return;
+  }
+
+  const selection = selections[index];
+  if (button.dataset.selectionAction === 'view') {
+    map.fitBounds(selection.layer.getBounds(), {
+      animate: true,
+      duration: 0.65,
+      padding: [70, 70],
+    });
+  } else if (button.dataset.selectionAction === 'remove') {
+    map.removeLayer(selection.layer);
+    selections.splice(index, 1);
+    renderSelectionList();
+  }
+});
+
+selectionsClearAll.addEventListener('click', () => {
+  selections.forEach((selection) => map.removeLayer(selection.layer));
+  selections.splice(0, selections.length);
+  renderSelectionList();
 });
 
 worldborderForm.addEventListener('submit', (event) => {
@@ -312,6 +528,8 @@ document.addEventListener('keydown', (event) => {
     if (!toolsPanel.hasAttribute('hidden')) {
       setToolsOpen(false);
       toolsButton.focus();
+    } else if (selectionMode !== 'idle') {
+      stopSelectionMode();
     } else {
       closeInspector();
     }
@@ -331,3 +549,5 @@ document.addEventListener('click', (event) => {
 });
 
 applyTheme();
+renderSelectionList();
+updateSelectionModeUi();

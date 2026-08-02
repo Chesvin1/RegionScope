@@ -83,6 +83,17 @@
               </div>
               <output class="tool-status" id="worldborder-status" aria-live="polite">No world border drawn.</output>
             </form>
+            <div class="tool-divider"></div>
+            <div class="tool-panel-heading">
+              <span class="selection-tool-icon" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Drawing tool</p>
+                <h2>Selections</h2>
+              </div>
+            </div>
+            <p class="tool-description">Click two blocks to save a colored rectangular area. Keep clicking to create more.</p>
+            <button class="tool-primary selection-start" id="selection-start" type="button">Start selecting</button>
+            <p class="tool-status" id="selection-tool-status">No selection tool active.</p>
           </div>
         </div>
       </header>
@@ -113,6 +124,12 @@
           <span><i class="legend-line chunk-line"></i>16 blocks</span>
           <span><i class="legend-line region-line"></i>512 blocks</span>
           <span><i class="legend-line axis-line"></i>Axis</span>
+        </div>
+
+        <div class="selection-toolbar" id="selection-toolbar" hidden>
+          <span class="selection-next-color" id="selection-next-color" aria-hidden="true"></span>
+          <strong id="selection-prompt" aria-live="polite">Click the first corner</strong>
+          <button id="selection-cancel" type="button">Done</button>
         </div>
       </section>
 
@@ -150,6 +167,17 @@
           </dl>
           <p class="inspector-note">One region contains 32 × 32 chunks and spans 512 × 512 blocks.</p>
         </div>
+        <section class="selections-section" aria-labelledby="selections-title">
+          <div class="selections-heading">
+            <div>
+              <p class="eyebrow">Map overlays</p>
+              <h3 id="selections-title">Selections <span id="selection-count">0</span></h3>
+            </div>
+            <button id="selections-clear-all" type="button" disabled>Clear all</button>
+          </div>
+          <p class="selections-empty" id="selections-empty">Use Tools → Selections to mark an area.</p>
+          <ol class="selections-list" id="selections-list"></ol>
+        </section>
       </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
