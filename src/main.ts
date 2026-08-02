@@ -10,6 +10,7 @@ import {
   getRegionForBlock,
   getRegionName,
   latLngToBlock,
+  type CoordinatePair,
 } from './coordinates';
 import { RegionGridLayer } from './grid-layer';
 import { parseSearch } from './search';
@@ -66,6 +67,8 @@ const inspectorEmpty = getElement<HTMLElement>('inspector-empty');
 const inspectorDetails = getElement<HTMLElement>('inspector-details');
 const regionName = getElement<HTMLElement>('region-name');
 const regionCoordinate = getElement<HTMLElement>('region-coordinate');
+const selectedBlockCard = getElement<HTMLElement>('selected-block-card');
+const selectedBlockCoordinate = getElement<HTMLElement>('selected-block-coordinate');
 const blockBounds = getElement<HTMLElement>('block-bounds');
 const chunkBounds = getElement<HTMLElement>('chunk-bounds');
 const themeButton = getElement<HTMLButtonElement>('theme-button');
@@ -73,6 +76,7 @@ const themeIcon = getElement<HTMLElement>('theme-icon');
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
 let highlight: L.Rectangle | undefined;
+let blockHighlight: L.Rectangle | undefined;
 
 const applyTheme = (): void => {
   const isDark = theme === 'dark';
@@ -89,13 +93,22 @@ const closeInspector = (): void => {
     map.removeLayer(highlight);
     highlight = undefined;
   }
+  if (blockHighlight) {
+    map.removeLayer(blockHighlight);
+    blockHighlight = undefined;
+  }
   inspector.classList.remove('is-open');
   app.classList.remove('inspector-open');
   inspectorEmpty.hidden = false;
   inspectorDetails.hidden = true;
 };
 
-const showRegion = (regionX: number, regionZ: number, shouldCenter: boolean): void => {
+const showRegion = (
+  regionX: number,
+  regionZ: number,
+  shouldCenter: boolean,
+  selectedBlock?: CoordinatePair,
+): void => {
   const bounds = getRegionBounds(regionX, regionZ);
   const rectangleBounds = L.latLngBounds(
     blockToLatLng(bounds.blockMin.x, bounds.blockMin.z),
@@ -118,6 +131,35 @@ const showRegion = (regionX: number, regionZ: number, shouldCenter: boolean): vo
 
   regionName.textContent = getRegionName(regionX, regionZ);
   regionCoordinate.textContent = formatPair(regionX, regionZ);
+
+  if (selectedBlock) {
+    const blockRectangleBounds = L.latLngBounds(
+      blockToLatLng(selectedBlock.x, selectedBlock.z),
+      blockToLatLng(selectedBlock.x + 1, selectedBlock.z + 1),
+    );
+    if (blockHighlight) {
+      blockHighlight.setBounds(blockRectangleBounds);
+    } else {
+      blockHighlight = L.rectangle(blockRectangleBounds, {
+        className: 'block-highlight',
+        color: '#15926d',
+        fillColor: '#40c69a',
+        fillOpacity: 0.3,
+        opacity: 1,
+        weight: 2,
+        interactive: false,
+      }).addTo(map);
+    }
+    selectedBlockCoordinate.textContent = `X ${formatCoordinate(selectedBlock.x)} · Z ${formatCoordinate(selectedBlock.z)}`;
+    selectedBlockCard.hidden = false;
+  } else {
+    if (blockHighlight) {
+      map.removeLayer(blockHighlight);
+      blockHighlight = undefined;
+    }
+    selectedBlockCard.hidden = true;
+  }
+
   blockBounds.innerHTML = `X ${formatCoordinate(bounds.blockMin.x)}…${formatCoordinate(bounds.blockMax.x)}<br>Z ${formatCoordinate(bounds.blockMin.z)}…${formatCoordinate(bounds.blockMax.z)}`;
   chunkBounds.innerHTML = `X ${formatCoordinate(bounds.chunkMin.x)}…${formatCoordinate(bounds.chunkMax.x)}<br>Z ${formatCoordinate(bounds.chunkMin.z)}…${formatCoordinate(bounds.chunkMax.z)}`;
   inspectorEmpty.hidden = true;
@@ -151,7 +193,7 @@ map.on('mousemove', (event: L.LeafletMouseEvent) => {
 map.on('click', (event: L.LeafletMouseEvent) => {
   const block = latLngToBlock(event.latlng);
   const region = getRegionForBlock(block.x, block.z);
-  showRegion(region.x, region.z, false);
+  showRegion(region.x, region.z, false, block);
 });
 
 searchForm.addEventListener('submit', (event) => {
@@ -165,7 +207,12 @@ searchForm.addEventListener('submit', (event) => {
   }
 
   searchInput.removeAttribute('aria-invalid');
-  showRegion(result.region.x, result.region.z, true);
+  showRegion(
+    result.region.x,
+    result.region.z,
+    true,
+    result.kind === 'block' ? result.block : undefined,
+  );
   searchStatus.textContent =
     result.kind === 'block'
       ? `Block ${formatPair(result.block.x, result.block.z)} is in ${getRegionName(result.region.x, result.region.z)}.`

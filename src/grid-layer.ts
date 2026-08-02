@@ -2,6 +2,7 @@ import L, { type Coords, type DoneCallback } from 'leaflet';
 import { BLOCKS_PER_CHUNK, BLOCKS_PER_REGION, getRegionName } from './coordinates';
 
 export interface GridPalette {
+  block: string;
   chunk: string;
   region: string;
   major: string;
@@ -11,6 +12,7 @@ export interface GridPalette {
 }
 
 const LIGHT_PALETTE: GridPalette = {
+  block: 'rgba(65, 92, 72, 0.075)',
   chunk: 'rgba(65, 92, 72, 0.11)',
   region: 'rgba(47, 72, 54, 0.35)',
   major: 'rgba(36, 125, 75, 0.72)',
@@ -20,6 +22,7 @@ const LIGHT_PALETTE: GridPalette = {
 };
 
 const DARK_PALETTE: GridPalette = {
+  block: 'rgba(175, 199, 181, 0.065)',
   chunk: 'rgba(175, 199, 181, 0.1)',
   region: 'rgba(177, 205, 185, 0.34)',
   major: 'rgba(100, 210, 145, 0.7)',
@@ -79,6 +82,23 @@ export class RegionGridLayer extends L.GridLayer {
     const maxBlockZ = -originY / scale;
     const regionPixels = BLOCKS_PER_REGION * scale;
     const chunkPixels = BLOCKS_PER_CHUNK * scale;
+    const blockPixels = scale;
+
+    if (blockPixels >= 6) {
+      this.drawGrid(
+        context,
+        1,
+        minBlockX,
+        maxBlockX,
+        minBlockZ,
+        maxBlockZ,
+        scale,
+        originX,
+        originY,
+        this.palette.block,
+        0.75,
+      );
+    }
 
     if (chunkPixels >= 10) {
       this.drawGrid(
