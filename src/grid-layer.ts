@@ -34,6 +34,8 @@ export class RegionGridLayer extends L.GridLayer {
   constructor(isDark = false) {
     super({
       tileSize: 256,
+      minZoom: -7,
+      maxZoom: 3,
       noWrap: true,
       updateWhenZooming: false,
       updateWhenIdle: false,
