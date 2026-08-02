@@ -5,6 +5,7 @@ RegionScope is a fast, static Minecraft region-coordinate explorer. It renders a
 ## Features
 
 - Smooth pan and zoom on an infinite coordinate plane
+- Familiar Cartesian orientation with positive X to the right and positive Z upward
 - Canvas-rendered adaptive grid with chunk, region, and major lines
 - Region labels at close zoom levels
 - Search for region files such as `r.-2.3.mca`
