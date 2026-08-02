@@ -12,8 +12,8 @@ export interface GridPalette {
 }
 
 const LIGHT_PALETTE: GridPalette = {
-  block: 'rgba(65, 92, 72, 0.075)',
-  chunk: 'rgba(65, 92, 72, 0.11)',
+  block: 'rgba(65, 92, 72, 0.12)',
+  chunk: 'rgba(65, 92, 72, 0.24)',
   region: 'rgba(47, 72, 54, 0.35)',
   major: 'rgba(36, 125, 75, 0.72)',
   axis: 'rgba(211, 92, 52, 0.9)',
@@ -22,8 +22,8 @@ const LIGHT_PALETTE: GridPalette = {
 };
 
 const DARK_PALETTE: GridPalette = {
-  block: 'rgba(175, 199, 181, 0.065)',
-  chunk: 'rgba(175, 199, 181, 0.1)',
+  block: 'rgba(175, 199, 181, 0.1)',
+  chunk: 'rgba(175, 199, 181, 0.22)',
   region: 'rgba(177, 205, 185, 0.34)',
   major: 'rgba(100, 210, 145, 0.7)',
   axis: 'rgba(255, 142, 102, 0.92)',
@@ -37,7 +37,7 @@ export class RegionGridLayer extends L.GridLayer {
   constructor(isDark = false) {
     super({
       tileSize: 256,
-      minZoom: -7,
+      minZoom: -18,
       maxZoom: 3,
       noWrap: true,
       updateWhenZooming: false,

@@ -39,9 +39,51 @@
             <span class="origin-icon" aria-hidden="true">◎</span>
             <span class="action-label">0, 0</span>
           </button>
+          <button
+            class="action-button tools-button"
+            id="tools-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="tools-panel"
+          >
+            <span class="tools-glyph" aria-hidden="true"></span>
+            <span class="tools-label">Tools</span>
+            <span class="tools-caret" aria-hidden="true">⌄</span>
+          </button>
           <button class="icon-button" id="theme-button" type="button" aria-label="Use dark theme" title="Use dark theme">
             <span id="theme-icon" aria-hidden="true">☾</span>
           </button>
+          <div class="tool-panel" id="tools-panel" role="dialog" aria-label="Map tools" hidden>
+            <div class="tool-panel-heading">
+              <span class="worldborder-icon" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Drawing tool</p>
+                <h2>World border</h2>
+              </div>
+            </div>
+            <p class="tool-description">Draw a square border centered at block 0, 0. Radius is the distance from the center to each edge.</p>
+            <form class="tool-form" id="worldborder-form">
+              <label for="worldborder-radius">Radius</label>
+              <div class="tool-input-wrap">
+                <input
+                  id="worldborder-radius"
+                  type="number"
+                  min="1"
+                  max="30000000"
+                  step="1"
+                  value="5000"
+                  inputmode="numeric"
+                  required
+                />
+                <span>blocks</span>
+              </div>
+              <div class="tool-actions">
+                <button class="tool-primary" type="submit">Draw &amp; view</button>
+                <button class="tool-secondary" id="worldborder-clear" type="button" disabled>Clear</button>
+              </div>
+              <output class="tool-status" id="worldborder-status" aria-live="polite">No world border drawn.</output>
+            </form>
+          </div>
         </div>
       </header>
 

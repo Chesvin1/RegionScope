@@ -11,7 +11,9 @@ RegionScope is a fast, static Minecraft region-coordinate explorer. It renders a
 - Search for region files such as `r.-2.3.mca`
 - Search for block coordinates such as `1200 -540`
 - Highlighted search results and click-to-inspect region bounds
+- Block-level grid and exact block selection at maximum zoom
 - Live block, chunk, and region coordinates under the cursor
+- Configurable origin-centered world-border drawing tool
 - Correct negative-coordinate conversion using `Math.floor()`
 - Responsive light and dark themes
 - Static GitHub Pages deployment

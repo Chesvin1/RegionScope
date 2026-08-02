@@ -41,7 +41,7 @@ const map = L.map('map', {
   crs: L.CRS.Simple,
   center: [0, 0],
   zoom: -2,
-  minZoom: -7,
+  minZoom: -18,
   maxZoom: 3,
   attributionControl: false,
   zoomControl: false,
@@ -73,10 +73,22 @@ const blockBounds = getElement<HTMLElement>('block-bounds');
 const chunkBounds = getElement<HTMLElement>('chunk-bounds');
 const themeButton = getElement<HTMLButtonElement>('theme-button');
 const themeIcon = getElement<HTMLElement>('theme-icon');
+const toolsButton = getElement<HTMLButtonElement>('tools-button');
+const toolsPanel = getElement<HTMLElement>('tools-panel');
+const worldborderForm = getElement<HTMLFormElement>('worldborder-form');
+const worldborderRadius = getElement<HTMLInputElement>('worldborder-radius');
+const worldborderClear = getElement<HTMLButtonElement>('worldborder-clear');
+const worldborderStatus = getElement<HTMLOutputElement>('worldborder-status');
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
 let highlight: L.Rectangle | undefined;
 let blockHighlight: L.Rectangle | undefined;
+let worldBorder: L.Rectangle | undefined;
+
+const setToolsOpen = (isOpen: boolean): void => {
+  toolsPanel.hidden = !isOpen;
+  toolsButton.setAttribute('aria-expanded', String(isOpen));
+};
 
 const applyTheme = (): void => {
   const isDark = theme === 'dark';
@@ -229,6 +241,66 @@ getElement<HTMLButtonElement>('origin-button').addEventListener('click', returnT
 getElement<HTMLButtonElement>('brand-home').addEventListener('click', returnToOrigin);
 getElement<HTMLButtonElement>('inspector-close').addEventListener('click', closeInspector);
 
+toolsButton.addEventListener('click', () => {
+  setToolsOpen(toolsPanel.hasAttribute('hidden'));
+});
+
+worldborderForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const radius = Math.floor(Number(worldborderRadius.value));
+
+  if (!Number.isSafeInteger(radius) || radius < 1 || radius > 30_000_000) {
+    worldborderRadius.setAttribute('aria-invalid', 'true');
+    worldborderStatus.textContent = 'Enter a radius from 1 to 30,000,000 blocks.';
+    return;
+  }
+
+  worldborderRadius.removeAttribute('aria-invalid');
+  worldborderRadius.value = String(radius);
+  const borderBounds = L.latLngBounds(
+    blockToLatLng(-radius, -radius),
+    blockToLatLng(radius, radius),
+  );
+
+  if (worldBorder) {
+    worldBorder.setBounds(borderBounds);
+  } else {
+    worldBorder = L.rectangle(borderBounds, {
+      className: 'world-border',
+      color: '#7665e8',
+      dashArray: '10 8',
+      fillColor: '#7665e8',
+      fillOpacity: 0.035,
+      opacity: 0.95,
+      weight: 3,
+      interactive: false,
+    }).addTo(map);
+  }
+
+  worldBorder.bringToBack();
+  worldborderClear.disabled = false;
+  worldborderStatus.textContent = `${formatCoordinate(radius)} block radius · ${formatCoordinate(radius * 2)} × ${formatCoordinate(radius * 2)} overall.`;
+  setToolsOpen(false);
+  map.fitBounds(borderBounds, {
+    animate: true,
+    duration: 0.8,
+    padding: [70, 70],
+  });
+});
+
+worldborderRadius.addEventListener('input', () => {
+  worldborderRadius.removeAttribute('aria-invalid');
+});
+
+worldborderClear.addEventListener('click', () => {
+  if (worldBorder) {
+    map.removeLayer(worldBorder);
+    worldBorder = undefined;
+  }
+  worldborderClear.disabled = true;
+  worldborderStatus.textContent = 'No world border drawn.';
+});
+
 themeButton.addEventListener('click', () => {
   theme = theme === 'dark' ? 'light' : 'dark';
   localStorage.setItem('regionscope-theme', theme);
@@ -237,7 +309,24 @@ themeButton.addEventListener('click', () => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
-    closeInspector();
+    if (!toolsPanel.hasAttribute('hidden')) {
+      setToolsOpen(false);
+      toolsButton.focus();
+    } else {
+      closeInspector();
+    }
+  }
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target;
+  if (
+    !toolsPanel.hasAttribute('hidden') &&
+    target instanceof Node &&
+    !toolsPanel.contains(target) &&
+    !toolsButton.contains(target)
+  ) {
+    setToolsOpen(false);
   }
 });
 
