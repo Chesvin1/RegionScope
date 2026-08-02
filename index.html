@@ -13,14 +13,97 @@
   <body>
     <main id="app">
       <header class="topbar">
-        <a class="brand" href="#" aria-label="RegionScope home">
+        <button class="brand" id="brand-home" type="button" aria-label="Return to coordinate zero">
           <span class="brand-mark" aria-hidden="true"></span>
           <span>RegionScope</span>
-        </a>
+        </button>
+
+        <form class="search" id="search-form" role="search">
+          <label class="sr-only" for="search-input">Search by region name or block coordinates</label>
+          <span class="search-icon" aria-hidden="true"></span>
+          <input
+            id="search-input"
+            name="coordinates"
+            type="search"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="r.-2.3.mca or 1200 -540"
+          />
+          <button class="search-submit" type="submit">Find</button>
+          <p class="search-status" id="search-status" role="status"></p>
+        </form>
+
+        <div class="topbar-actions">
+          <button class="action-button" id="origin-button" type="button" title="Return to block 0, 0">
+            <span class="origin-icon" aria-hidden="true">◎</span>
+            <span class="action-label">0, 0</span>
+          </button>
+          <button class="icon-button" id="theme-button" type="button" aria-label="Use dark theme" title="Use dark theme">
+            <span id="theme-icon" aria-hidden="true">☾</span>
+          </button>
+        </div>
       </header>
+
       <section class="map-shell" aria-label="Minecraft coordinate grid">
-        <div id="map"></div>
+        <div id="map" role="application" aria-label="Infinite Minecraft region coordinate grid"></div>
+
+        <section class="coordinate-hud" aria-label="Cursor coordinates">
+          <p class="hud-title"><span class="live-dot" aria-hidden="true"></span> Cursor</p>
+          <div class="coordinate-values">
+            <div>
+              <span>Block</span>
+              <strong id="cursor-block">—</strong>
+            </div>
+            <div>
+              <span>Chunk</span>
+              <strong id="cursor-chunk">—</strong>
+            </div>
+            <div>
+              <span>Region</span>
+              <strong id="cursor-region">—</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid-legend" aria-hidden="true">
+          <span><i class="legend-line chunk-line"></i>16 blocks</span>
+          <span><i class="legend-line region-line"></i>512 blocks</span>
+          <span><i class="legend-line axis-line"></i>Axis</span>
+        </div>
       </section>
+
+      <aside class="inspector" id="inspector" aria-labelledby="inspector-title">
+        <button class="inspector-close" id="inspector-close" type="button" aria-label="Close region details">×</button>
+        <div class="inspector-empty" id="inspector-empty">
+          <span class="empty-grid" aria-hidden="true"></span>
+          <p class="eyebrow">Region inspector</p>
+          <h2 id="inspector-title">Select a region</h2>
+          <p>Click anywhere on the grid to inspect that region’s exact block and chunk boundaries.</p>
+        </div>
+        <div class="inspector-details" id="inspector-details" hidden>
+          <p class="eyebrow">Selected region</p>
+          <div class="region-heading">
+            <h2 id="region-name">r.0.0</h2>
+            <span class="file-badge">.mca</span>
+          </div>
+          <dl class="bounds-list">
+            <div>
+              <dt>Region coordinate</dt>
+              <dd id="region-coordinate">0, 0</dd>
+            </div>
+            <div>
+              <dt>Block bounds</dt>
+              <dd id="block-bounds">X 0…511<br />Z 0…511</dd>
+            </div>
+            <div>
+              <dt>Chunk bounds</dt>
+              <dd id="chunk-bounds">X 0…31<br />Z 0…31</dd>
+            </div>
+          </dl>
+          <p class="inspector-note">One region contains 32 × 32 chunks and spans 512 × 512 blocks.</p>
+        </div>
+      </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
