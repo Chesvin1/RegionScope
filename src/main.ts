@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import {
+  BLOCKS_PER_CHUNK,
   blockToChunk,
   blockToLatLng,
   blockToRegion,
@@ -14,17 +15,32 @@ import {
 } from './coordinates';
 import { RegionGridLayer } from './grid-layer';
 import { parseSearch } from './search';
+import { parseShardAssignments, type ShardAssignment } from './shard-import';
 
 type Theme = 'light' | 'dark';
 type SelectionMode = 'idle' | 'awaiting-first' | 'awaiting-second';
 
-interface AreaSelection {
+interface BaseSelection {
   id: number;
+  color: string;
+}
+
+interface AreaSelection extends BaseSelection {
+  kind: 'area';
   cornerA: CoordinatePair;
   cornerB: CoordinatePair;
-  color: string;
   layer: L.Rectangle;
 }
+
+interface ShardSelection extends BaseSelection {
+  kind: 'shard';
+  assignmentId: string;
+  shard: string;
+  points: CoordinatePair[];
+  layer: L.Polygon;
+}
+
+type MapSelection = AreaSelection | ShardSelection;
 
 const getElement = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -97,6 +113,10 @@ const selectionList = getElement<HTMLOListElement>('selections-list');
 const selectionCount = getElement<HTMLElement>('selection-count');
 const selectionsEmpty = getElement<HTMLElement>('selections-empty');
 const selectionsClearAll = getElement<HTMLButtonElement>('selections-clear-all');
+const shardImportDialog = getElement<HTMLDialogElement>('shard-import-dialog');
+const shardImportForm = getElement<HTMLFormElement>('shard-import-form');
+const shardImportSource = getElement<HTMLTextAreaElement>('shard-import-source');
+const shardImportStatus = getElement<HTMLElement>('shard-import-status');
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
 let highlight: L.Rectangle | undefined;
@@ -106,7 +126,7 @@ let selectionMode: SelectionMode = 'idle';
 let selectionCornerA: CoordinatePair | undefined;
 let selectionDraft: L.Rectangle | undefined;
 let nextSelectionId = 1;
-const selections: AreaSelection[] = [];
+const selections: MapSelection[] = [];
 
 const setToolsOpen = (isOpen: boolean): void => {
   toolsPanel.hidden = !isOpen;
@@ -136,22 +156,76 @@ const renderSelectionList = (): void => {
     const item = document.createElement('li');
     item.className = 'selection-item';
     item.style.setProperty('--selection-color', selection.color);
-    item.innerHTML = `
-      <div class="selection-item-heading">
-        <div class="selection-item-name">
-          <span class="selection-color" aria-hidden="true"></span>
-          <strong>Selection ${index + 1}</strong>
-        </div>
-        <div class="selection-item-actions">
-          <button type="button" data-selection-action="view" data-selection-id="${selection.id}">View</button>
-          <button type="button" data-selection-action="remove" data-selection-id="${selection.id}" aria-label="Remove Selection ${index + 1}">×</button>
-        </div>
-      </div>
-      <dl class="selection-corners">
-        <div><dt>Corner A</dt><dd>X ${formatCoordinate(selection.cornerA.x)}<br>Z ${formatCoordinate(selection.cornerA.z)}</dd></div>
-        <div><dt>Corner B</dt><dd>X ${formatCoordinate(selection.cornerB.x)}<br>Z ${formatCoordinate(selection.cornerB.z)}</dd></div>
-      </dl>
-    `;
+
+    const heading = document.createElement('div');
+    heading.className = 'selection-item-heading';
+    const name = document.createElement('div');
+    name.className = 'selection-item-name';
+    const color = document.createElement('span');
+    color.className = 'selection-color';
+    color.setAttribute('aria-hidden', 'true');
+    const titleWrap = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = selection.kind === 'shard' ? selection.shard : `Selection ${index + 1}`;
+    titleWrap.append(title);
+    if (selection.kind === 'shard') {
+      const assignmentId = document.createElement('small');
+      assignmentId.className = 'selection-assignment-id';
+      assignmentId.textContent = selection.assignmentId;
+      titleWrap.append(assignmentId);
+    }
+    name.append(color, titleWrap);
+
+    const actions = document.createElement('div');
+    actions.className = 'selection-item-actions';
+    const viewButton = document.createElement('button');
+    viewButton.type = 'button';
+    viewButton.dataset.selectionAction = 'view';
+    viewButton.dataset.selectionId = String(selection.id);
+    viewButton.textContent = 'View';
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.dataset.selectionAction = 'remove';
+    removeButton.dataset.selectionId = String(selection.id);
+    removeButton.ariaLabel = `Remove ${selection.kind === 'shard' ? selection.shard : `Selection ${index + 1}`}`;
+    removeButton.textContent = '×';
+    actions.append(viewButton, removeButton);
+    heading.append(name, actions);
+    item.append(heading);
+
+    if (selection.kind === 'area') {
+      const corners = document.createElement('dl');
+      corners.className = 'selection-corners';
+      [
+        ['Corner A', selection.cornerA],
+        ['Corner B', selection.cornerB],
+      ].forEach(([label, point]) => {
+        const container = document.createElement('div');
+        const term = document.createElement('dt');
+        const description = document.createElement('dd');
+        term.textContent = String(label);
+        const coordinate = point as CoordinatePair;
+        description.append(`X ${formatCoordinate(coordinate.x)}`, document.createElement('br'));
+        description.append(`Z ${formatCoordinate(coordinate.z)}`);
+        container.append(term, description);
+        corners.append(container);
+      });
+      item.append(corners);
+    } else {
+      const pointDetails = document.createElement('details');
+      pointDetails.className = 'selection-points';
+      const summary = document.createElement('summary');
+      summary.textContent = `${selection.points.length} inclusive chunk points`;
+      const pointList = document.createElement('ol');
+      selection.points.forEach((point) => {
+        const pointItem = document.createElement('li');
+        pointItem.textContent = `[${formatCoordinate(point.x)}, ${formatCoordinate(point.z)}]`;
+        pointList.append(pointItem);
+      });
+      pointDetails.append(summary, pointList);
+      item.append(pointDetails);
+    }
+
     selectionList.append(item);
   });
 };
@@ -210,6 +284,7 @@ const addSelection = (cornerA: CoordinatePair, cornerB: CoordinatePair): void =>
 
   selections.push({
     id: nextSelectionId,
+    kind: 'area',
     cornerA: { ...cornerA },
     cornerB: { ...cornerB },
     color,
@@ -222,6 +297,102 @@ const addSelection = (cornerA: CoordinatePair, cornerB: CoordinatePair): void =>
   renderSelectionList();
   inspector.classList.add('is-open');
   app.classList.add('inspector-open');
+};
+
+const getInclusiveShardPolygon = (points: CoordinatePair[]): L.LatLngExpression[] => {
+  const signedArea = points.reduce((area, point, index) => {
+    const next = points[(index + 1) % points.length];
+    return area + point.x * next.z - next.x * point.z;
+  }, 0);
+  const isCounterClockwise = signedArea > 0;
+  const centers = points.map((point) => ({ x: point.x + 0.5, z: point.z + 0.5 }));
+  const cross = (a: CoordinatePair, b: CoordinatePair): number => a.x * b.z - a.z * b.x;
+
+  return centers.map((center, index) => {
+    const previous = centers[(index - 1 + centers.length) % centers.length];
+    const next = centers[(index + 1) % centers.length];
+    const incomingLength = Math.hypot(center.x - previous.x, center.z - previous.z);
+    const outgoingLength = Math.hypot(next.x - center.x, next.z - center.z);
+    const incoming = {
+      x: (center.x - previous.x) / incomingLength,
+      z: (center.z - previous.z) / incomingLength,
+    };
+    const outgoing = {
+      x: (next.x - center.x) / outgoingLength,
+      z: (next.z - center.z) / outgoingLength,
+    };
+    const outward = (direction: CoordinatePair): CoordinatePair =>
+      isCounterClockwise
+        ? { x: direction.z, z: -direction.x }
+        : { x: -direction.z, z: direction.x };
+    const incomingNormal = outward(incoming);
+    const outgoingNormal = outward(outgoing);
+    const incomingOffset = {
+      x: center.x + incomingNormal.x * 0.5,
+      z: center.z + incomingNormal.z * 0.5,
+    };
+    const outgoingOffset = {
+      x: center.x + outgoingNormal.x * 0.5,
+      z: center.z + outgoingNormal.z * 0.5,
+    };
+    const determinant = cross(incoming, outgoing);
+
+    let boundary = incomingOffset;
+    if (Math.abs(determinant) > 1e-9) {
+      const betweenOffsets = {
+        x: outgoingOffset.x - incomingOffset.x,
+        z: outgoingOffset.z - incomingOffset.z,
+      };
+      const distanceAlongIncoming = cross(betweenOffsets, outgoing) / determinant;
+      boundary = {
+        x: incomingOffset.x + incoming.x * distanceAlongIncoming,
+        z: incomingOffset.z + incoming.z * distanceAlongIncoming,
+      };
+    }
+
+    return blockToLatLng(
+      boundary.x * BLOCKS_PER_CHUNK,
+      boundary.z * BLOCKS_PER_CHUNK,
+    );
+  });
+};
+
+const addShardSelection = (assignment: ShardAssignment): ShardSelection => {
+  const color = getSelectionColor(nextSelectionId - 1);
+  const layer = L.polygon(
+    getInclusiveShardPolygon(assignment.points),
+    {
+      className: 'area-selection shard-selection',
+      color,
+      fillColor: color,
+      fillOpacity: 0.16,
+      opacity: 0.98,
+      weight: 3,
+      interactive: false,
+    },
+  ).addTo(map);
+  const label = document.createElement('span');
+  label.textContent = assignment.shard;
+  layer.bindTooltip(label, {
+    className: 'shard-label',
+    direction: 'center',
+    interactive: false,
+    opacity: 1,
+    permanent: true,
+  });
+
+  const selection: ShardSelection = {
+    id: nextSelectionId,
+    kind: 'shard',
+    assignmentId: assignment.id,
+    shard: assignment.shard,
+    points: assignment.points.map((point) => ({ ...point })),
+    color,
+    layer,
+  };
+  selections.push(selection);
+  nextSelectionId += 1;
+  return selection;
 };
 
 const applyTheme = (): void => {
@@ -424,6 +595,48 @@ selectionStartButton.addEventListener('click', () => {
 });
 
 getElement<HTMLButtonElement>('selection-cancel').addEventListener('click', stopSelectionMode);
+
+getElement<HTMLButtonElement>('shard-import-open').addEventListener('click', () => {
+  stopSelectionMode();
+  setToolsOpen(false);
+  shardImportStatus.textContent = '';
+  shardImportDialog.showModal();
+  shardImportSource.focus();
+});
+
+const closeShardImport = (): void => {
+  shardImportDialog.close();
+  shardImportStatus.textContent = '';
+};
+
+getElement<HTMLButtonElement>('shard-import-close').addEventListener('click', closeShardImport);
+getElement<HTMLButtonElement>('shard-import-cancel').addEventListener('click', closeShardImport);
+
+shardImportForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  try {
+    const assignments = parseShardAssignments(shardImportSource.value);
+    const imported = assignments.map(addShardSelection);
+    worldBorder?.bringToBack();
+    highlight?.bringToFront();
+    blockHighlight?.bringToFront();
+    renderSelectionList();
+    inspector.classList.add('is-open');
+    app.classList.add('inspector-open');
+    selectionToolStatus.textContent = `${imported.length} shard ${imported.length === 1 ? 'assignment' : 'assignments'} imported.`;
+    shardImportDialog.close();
+
+    const importedGroup = L.featureGroup(imported.map((selection) => selection.layer));
+    map.fitBounds(importedGroup.getBounds(), {
+      animate: true,
+      duration: 0.8,
+      padding: [70, 70],
+    });
+  } catch (error) {
+    shardImportStatus.textContent =
+      error instanceof Error ? error.message : 'The assignments could not be imported.';
+  }
+});
 
 selectionList.addEventListener('click', (event) => {
   const target = event.target;

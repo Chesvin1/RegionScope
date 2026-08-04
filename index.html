@@ -92,7 +92,10 @@
               </div>
             </div>
             <p class="tool-description">Click two blocks to save a colored rectangular area. Keep clicking to create more.</p>
-            <button class="tool-primary selection-start" id="selection-start" type="button">Start selecting</button>
+            <div class="selection-tool-actions">
+              <button class="tool-primary selection-start" id="selection-start" type="button">Start selecting</button>
+              <button class="tool-secondary" id="shard-import-open" type="button">Import shards</button>
+            </div>
             <p class="tool-status" id="selection-tool-status">No selection tool active.</p>
           </div>
         </div>
@@ -179,6 +182,32 @@
           <ol class="selections-list" id="selections-list"></ol>
         </section>
       </aside>
+
+      <dialog class="import-dialog" id="shard-import-dialog" aria-labelledby="shard-import-title">
+        <form id="shard-import-form">
+          <div class="import-dialog-heading">
+            <div>
+              <p class="eyebrow">Selection tool</p>
+              <h2 id="shard-import-title">Import shard assignments</h2>
+            </div>
+            <button id="shard-import-close" type="button" aria-label="Close shard importer">×</button>
+          </div>
+          <p class="import-description">Paste an <code>assignments:</code> configuration. Every point must be an inclusive chunk coordinate in <code>[x, z]</code> form.</p>
+          <label for="shard-import-source">Assignment configuration</label>
+          <textarea
+            id="shard-import-source"
+            rows="16"
+            spellcheck="false"
+            placeholder="assignments:&#10;  - id: overworld-north&#10;    shard: survival-1&#10;    points:&#10;      - [-64, 0]&#10;      - [64, 0]&#10;      - [64, 64]&#10;      - [-64, 64]"
+            required
+          ></textarea>
+          <p class="import-status" id="shard-import-status" role="alert"></p>
+          <div class="import-actions">
+            <button class="tool-secondary" id="shard-import-cancel" type="button">Cancel</button>
+            <button class="tool-primary" type="submit">Import shards</button>
+          </div>
+        </form>
+      </dialog>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
