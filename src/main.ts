@@ -15,6 +15,12 @@ import {
 } from './coordinates';
 import { RegionGridLayer } from './grid-layer';
 import { parseSearch } from './search';
+import {
+  decodeShareState,
+  encodeShareState,
+  type ShareState,
+  type SharedSelection,
+} from './share-state';
 import { parseShardAssignments, type ShardAssignment } from './shard-import';
 
 type Theme = 'light' | 'dark';
@@ -41,6 +47,11 @@ interface ShardSelection extends BaseSelection {
 }
 
 type MapSelection = AreaSelection | ShardSelection;
+
+interface AddSelectionOptions {
+  color?: string;
+  updateUi?: boolean;
+}
 
 const getElement = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -100,6 +111,8 @@ const themeButton = getElement<HTMLButtonElement>('theme-button');
 const themeIcon = getElement<HTMLElement>('theme-icon');
 const toolsButton = getElement<HTMLButtonElement>('tools-button');
 const toolsPanel = getElement<HTMLElement>('tools-panel');
+const shareButton = getElement<HTMLButtonElement>('share-button');
+const shareToast = getElement<HTMLElement>('share-toast');
 const worldborderForm = getElement<HTMLFormElement>('worldborder-form');
 const worldborderRadius = getElement<HTMLInputElement>('worldborder-radius');
 const worldborderClear = getElement<HTMLButtonElement>('worldborder-clear');
@@ -122,15 +135,29 @@ const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-col
 let highlight: L.Rectangle | undefined;
 let blockHighlight: L.Rectangle | undefined;
 let worldBorder: L.Rectangle | undefined;
+let worldBorderRadiusValue: number | undefined;
 let selectionMode: SelectionMode = 'idle';
 let selectionCornerA: CoordinatePair | undefined;
 let selectionDraft: L.Rectangle | undefined;
 let nextSelectionId = 1;
 const selections: MapSelection[] = [];
+let shareToastTimeout: number | undefined;
 
 const setToolsOpen = (isOpen: boolean): void => {
   toolsPanel.hidden = !isOpen;
   toolsButton.setAttribute('aria-expanded', String(isOpen));
+};
+
+const showShareToast = (message: string, isError = false): void => {
+  if (shareToastTimeout !== undefined) {
+    window.clearTimeout(shareToastTimeout);
+  }
+  shareToast.textContent = message;
+  shareToast.classList.toggle('is-error', isError);
+  shareToast.hidden = false;
+  shareToastTimeout = window.setTimeout(() => {
+    shareToast.hidden = true;
+  }, 3200);
 };
 
 const getSelectionColor = (index: number): string => {
@@ -270,8 +297,12 @@ const startSelectionMode = (): void => {
   updateSelectionModeUi();
 };
 
-const addSelection = (cornerA: CoordinatePair, cornerB: CoordinatePair): void => {
-  const color = getSelectionColor(nextSelectionId - 1);
+const addSelection = (
+  cornerA: CoordinatePair,
+  cornerB: CoordinatePair,
+  options: AddSelectionOptions = {},
+): void => {
+  const color = options.color ?? getSelectionColor(nextSelectionId - 1);
   const layer = L.rectangle(getSelectionBounds(cornerA, cornerB), {
     className: 'area-selection',
     color,
@@ -294,9 +325,11 @@ const addSelection = (cornerA: CoordinatePair, cornerB: CoordinatePair): void =>
   worldBorder?.bringToBack();
   highlight?.bringToFront();
   blockHighlight?.bringToFront();
-  renderSelectionList();
-  inspector.classList.add('is-open');
-  app.classList.add('inspector-open');
+  if (options.updateUi !== false) {
+    renderSelectionList();
+    inspector.classList.add('is-open');
+    app.classList.add('inspector-open');
+  }
 };
 
 const getInclusiveShardPolygon = (points: CoordinatePair[]): L.LatLngExpression[] => {
@@ -357,8 +390,11 @@ const getInclusiveShardPolygon = (points: CoordinatePair[]): L.LatLngExpression[
   });
 };
 
-const addShardSelection = (assignment: ShardAssignment): ShardSelection => {
-  const color = getSelectionColor(nextSelectionId - 1);
+const addShardSelection = (
+  assignment: ShardAssignment,
+  options: AddSelectionOptions = {},
+): ShardSelection => {
+  const color = options.color ?? getSelectionColor(nextSelectionId - 1);
   const layer = L.polygon(
     getInclusiveShardPolygon(assignment.points),
     {
@@ -392,7 +428,78 @@ const addShardSelection = (assignment: ShardAssignment): ShardSelection => {
   };
   selections.push(selection);
   nextSelectionId += 1;
+  if (options.updateUi !== false) {
+    renderSelectionList();
+    inspector.classList.add('is-open');
+    app.classList.add('inspector-open');
+  }
   return selection;
+};
+
+const getCurrentShareState = (): ShareState => {
+  const center = map.getCenter();
+  const sharedSelections: SharedSelection[] = selections.map((selection) =>
+    selection.kind === 'area'
+      ? {
+          kind: 'area',
+          cornerA: [selection.cornerA.x, selection.cornerA.z],
+          cornerB: [selection.cornerB.x, selection.cornerB.z],
+          color: selection.color,
+        }
+      : {
+          kind: 'shard',
+          assignmentId: selection.assignmentId,
+          shard: selection.shard,
+          points: selection.points.map((point) => [point.x, point.z]),
+          color: selection.color,
+        },
+  );
+
+  return {
+    version: 1,
+    view: {
+      x: center.lng,
+      z: center.lat,
+      zoom: map.getZoom(),
+    },
+    ...(worldBorderRadiusValue === undefined ? {} : { worldBorderRadius: worldBorderRadiusValue }),
+    selections: sharedSelections,
+  };
+};
+
+const copyText = async (text: string): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.append(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) {
+      throw new Error('Clipboard access was unavailable.');
+    }
+  }
+};
+
+const copyShareLink = async (): Promise<void> => {
+  try {
+    const payload = encodeShareState(getCurrentShareState());
+    const url = new URL(window.location.href);
+    url.hash = `s=${payload}`;
+    window.history.replaceState(null, '', url);
+    await copyText(url.toString());
+    showShareToast('Share link copied to clipboard.');
+  } catch (error) {
+    showShareToast(
+      error instanceof Error ? error.message : 'The share link could not be created.',
+      true,
+    );
+  }
 };
 
 const applyTheme = (): void => {
@@ -586,6 +693,10 @@ toolsButton.addEventListener('click', () => {
   setToolsOpen(toolsPanel.hasAttribute('hidden'));
 });
 
+shareButton.addEventListener('click', () => {
+  void copyShareLink();
+});
+
 selectionStartButton.addEventListener('click', () => {
   if (selectionMode === 'idle') {
     startSelectionMode();
@@ -616,7 +727,9 @@ shardImportForm.addEventListener('submit', (event) => {
   event.preventDefault();
   try {
     const assignments = parseShardAssignments(shardImportSource.value);
-    const imported = assignments.map(addShardSelection);
+    const imported = assignments.map((assignment) =>
+      addShardSelection(assignment, { updateUi: false }),
+    );
     worldBorder?.bringToBack();
     highlight?.bringToFront();
     blockHighlight?.bringToFront();
@@ -674,18 +787,7 @@ selectionsClearAll.addEventListener('click', () => {
   renderSelectionList();
 });
 
-worldborderForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const radius = Math.floor(Number(worldborderRadius.value));
-
-  if (!Number.isSafeInteger(radius) || radius < 1 || radius > 30_000_000) {
-    worldborderRadius.setAttribute('aria-invalid', 'true');
-    worldborderStatus.textContent = 'Enter a radius from 1 to 30,000,000 blocks.';
-    return;
-  }
-
-  worldborderRadius.removeAttribute('aria-invalid');
-  worldborderRadius.value = String(radius);
+const drawWorldBorder = (radius: number, shouldFit: boolean): void => {
   const borderBounds = L.latLngBounds(
     blockToLatLng(-radius, -radius),
     blockToLatLng(radius, radius),
@@ -706,15 +808,33 @@ worldborderForm.addEventListener('submit', (event) => {
     }).addTo(map);
   }
 
+  worldBorderRadiusValue = radius;
   worldBorder.bringToBack();
+  worldborderRadius.value = String(radius);
   worldborderClear.disabled = false;
   worldborderStatus.textContent = `${formatCoordinate(radius)} block radius · ${formatCoordinate(radius * 2)} × ${formatCoordinate(radius * 2)} overall.`;
+  if (shouldFit) {
+    map.fitBounds(borderBounds, {
+      animate: true,
+      duration: 0.8,
+      padding: [70, 70],
+    });
+  }
+};
+
+worldborderForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const radius = Math.floor(Number(worldborderRadius.value));
+
+  if (!Number.isSafeInteger(radius) || radius < 1 || radius > 30_000_000) {
+    worldborderRadius.setAttribute('aria-invalid', 'true');
+    worldborderStatus.textContent = 'Enter a radius from 1 to 30,000,000 blocks.';
+    return;
+  }
+
+  worldborderRadius.removeAttribute('aria-invalid');
   setToolsOpen(false);
-  map.fitBounds(borderBounds, {
-    animate: true,
-    duration: 0.8,
-    padding: [70, 70],
-  });
+  drawWorldBorder(radius, true);
 });
 
 worldborderRadius.addEventListener('input', () => {
@@ -726,9 +846,57 @@ worldborderClear.addEventListener('click', () => {
     map.removeLayer(worldBorder);
     worldBorder = undefined;
   }
+  worldBorderRadiusValue = undefined;
   worldborderClear.disabled = true;
   worldborderStatus.textContent = 'No world border drawn.';
 });
+
+const restoreSharedSetup = (): void => {
+  const payload = new URLSearchParams(window.location.hash.slice(1)).get('s');
+  if (!payload) {
+    return;
+  }
+
+  try {
+    const state = decodeShareState(payload);
+    if (state.worldBorderRadius !== undefined) {
+      drawWorldBorder(state.worldBorderRadius, false);
+    }
+    state.selections.forEach((selection) => {
+      if (selection.kind === 'area') {
+        addSelection(
+          { x: selection.cornerA[0], z: selection.cornerA[1] },
+          { x: selection.cornerB[0], z: selection.cornerB[1] },
+          { color: selection.color, updateUi: false },
+        );
+      } else {
+        addShardSelection(
+          {
+            id: selection.assignmentId,
+            shard: selection.shard,
+            points: selection.points.map(([x, z]) => ({ x, z })),
+          },
+          { color: selection.color, updateUi: false },
+        );
+      }
+    });
+    worldBorder?.bringToBack();
+    renderSelectionList();
+    if (selections.length > 0) {
+      inspector.classList.add('is-open');
+      app.classList.add('inspector-open');
+    }
+    map.setView(blockToLatLng(state.view.x, state.view.z), state.view.zoom, {
+      animate: false,
+    });
+    showShareToast('Shared setup loaded.');
+  } catch (error) {
+    showShareToast(
+      error instanceof Error ? error.message : 'The shared setup could not be loaded.',
+      true,
+    );
+  }
+};
 
 themeButton.addEventListener('click', () => {
   theme = theme === 'dark' ? 'light' : 'dark';
@@ -764,3 +932,4 @@ document.addEventListener('click', (event) => {
 applyTheme();
 renderSelectionList();
 updateSelectionModeUi();
+restoreSharedSetup();

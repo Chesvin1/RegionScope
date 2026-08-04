@@ -39,6 +39,10 @@
             <span class="origin-icon" aria-hidden="true">◎</span>
             <span class="action-label">0, 0</span>
           </button>
+          <button class="action-button share-button" id="share-button" type="button" title="Copy a link to this setup">
+            <span class="share-glyph" aria-hidden="true"></span>
+            <span class="share-label">Share</span>
+          </button>
           <button
             class="action-button tools-button"
             id="tools-button"
@@ -134,6 +138,8 @@
           <strong id="selection-prompt" aria-live="polite">Click the first corner</strong>
           <button id="selection-cancel" type="button">Done</button>
         </div>
+
+        <p class="share-toast" id="share-toast" role="status" hidden></p>
       </section>
 
       <aside class="inspector" id="inspector" aria-labelledby="inspector-title">

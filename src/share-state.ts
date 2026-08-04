@@ -149,11 +149,23 @@ const validateShareState = (value: unknown): ShareState => {
       if (totalPoints > MAX_TOTAL_POINTS) {
         throw new Error('The shared setup contains too many polygon points.');
       }
+      const points = selection.points.map(readPoint);
+      const uniquePoints = new Set(points.map(([x, z]) => `${x},${z}`));
+      if (uniquePoints.size !== points.length) {
+        throw new Error('A shared shard contains a repeated polygon point.');
+      }
+      const twiceArea = points.reduce((area, [x, z], index) => {
+        const [nextX, nextZ] = points[(index + 1) % points.length];
+        return area + x * nextZ - nextX * z;
+      }, 0);
+      if (twiceArea === 0) {
+        throw new Error('A shared shard does not form a polygon with area.');
+      }
       return {
         kind: 'shard',
         assignmentId: readLabel(selection.assignmentId, 'assignment id'),
         shard: readLabel(selection.shard, 'shard name'),
-        points: selection.points.map(readPoint),
+        points,
         color,
       };
     }

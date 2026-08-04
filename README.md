@@ -16,6 +16,7 @@ RegionScope is a fast, static Minecraft region-coordinate explorer. It renders a
 - Configurable origin-centered world-border drawing tool
 - Unlimited two-corner area selections with automatic colors and saved coordinate lists
 - Paste-imported shard assignment polygons using inclusive chunk coordinates
+- Shareable links that preserve the viewport, world border, selections, colors, and shard polygons
 - Correct negative-coordinate conversion using `Math.floor()`
 - Responsive light and dark themes
 - Static GitHub Pages deployment

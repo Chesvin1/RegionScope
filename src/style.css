@@ -244,6 +244,39 @@ input:focus-visible {
   min-width: 92px;
 }
 
+.share-button {
+  min-width: 88px;
+}
+
+.share-glyph {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+}
+
+.share-glyph::before,
+.share-glyph::after {
+  position: absolute;
+  left: 2px;
+  width: 8px;
+  height: 1.5px;
+  background: var(--green);
+  content: "";
+  transform-origin: left center;
+}
+
+.share-glyph::before {
+  top: 3px;
+  transform: rotate(28deg);
+}
+
+.share-glyph::after {
+  bottom: 3px;
+  transform: rotate(-28deg);
+}
+
 .tools-glyph {
   width: 15px;
   height: 15px;
@@ -637,6 +670,31 @@ input:focus-visible {
   font-size: 10px;
   font-weight: 750;
   cursor: pointer;
+}
+
+.share-toast {
+  position: absolute;
+  z-index: 860;
+  top: 92px;
+  left: 16px;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.share-toast[hidden] {
+  display: none;
+}
+
+.share-toast.is-error {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
 }
 
 .coordinate-hud {
@@ -1214,6 +1272,11 @@ input:focus-visible {
     max-width: calc(100vw - 20px);
   }
 
+  .share-toast {
+    top: 126px;
+    left: 10px;
+  }
+
   .action-button,
   .icon-button {
     height: 38px;
@@ -1311,11 +1374,18 @@ input:focus-visible {
   }
 
   .tools-label,
-  .tools-caret {
+  .tools-caret,
+  .share-label {
     display: none;
   }
 
   .tools-button {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+  }
+
+  .share-button {
     min-width: 38px;
     width: 38px;
     padding: 0;
@@ -1355,6 +1425,12 @@ input:focus-visible {
 
   .bounds-list dd {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand > span:last-child {
+    display: none;
   }
 }
 
