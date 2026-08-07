@@ -459,7 +459,7 @@ const getCurrentShareState = (): ShareState => {
     version: 1,
     view: {
       x: center.lng,
-      z: center.lat,
+      z: -center.lat,
       zoom: map.getZoom(),
     },
     ...(worldBorderRadiusValue === undefined ? {} : { worldBorderRadius: worldBorderRadiusValue }),

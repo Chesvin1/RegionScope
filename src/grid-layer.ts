@@ -75,11 +75,11 @@ export class RegionGridLayer extends L.GridLayer {
   private drawTile(context: CanvasRenderingContext2D, coords: Coords, tileSize: L.Point): void {
     const scale = 2 ** coords.z;
     const originX = coords.x * tileSize.x;
-    const originY = coords.y * tileSize.y;
+    const originZ = coords.y * tileSize.y;
     const minBlockX = originX / scale;
-    const minBlockZ = -(originY + tileSize.y) / scale;
+    const minBlockZ = originZ / scale;
     const maxBlockX = (originX + tileSize.x) / scale;
-    const maxBlockZ = -originY / scale;
+    const maxBlockZ = (originZ + tileSize.y) / scale;
     const regionPixels = BLOCKS_PER_REGION * scale;
     const chunkPixels = BLOCKS_PER_CHUNK * scale;
     const blockPixels = scale;
@@ -94,7 +94,7 @@ export class RegionGridLayer extends L.GridLayer {
         maxBlockZ,
         scale,
         originX,
-        originY,
+        originZ,
         this.palette.block,
         0.75,
       );
@@ -110,7 +110,7 @@ export class RegionGridLayer extends L.GridLayer {
         maxBlockZ,
         scale,
         originX,
-        originY,
+        originZ,
         this.palette.chunk,
         1,
       );
@@ -126,7 +126,7 @@ export class RegionGridLayer extends L.GridLayer {
         maxBlockZ,
         scale,
         originX,
-        originY,
+        originZ,
         this.palette.region,
         1.25,
       );
@@ -145,12 +145,12 @@ export class RegionGridLayer extends L.GridLayer {
       maxBlockZ,
       scale,
       originX,
-      originY,
+      originZ,
       this.palette.major,
       1.75,
     );
 
-    this.drawAxes(context, minBlockX, maxBlockX, minBlockZ, maxBlockZ, originX, originY);
+    this.drawAxes(context, minBlockX, maxBlockX, minBlockZ, maxBlockZ, originX, originZ);
 
     if (regionPixels >= 140) {
       this.drawRegionLabels(context, coords, tileSize, scale);
@@ -166,7 +166,7 @@ export class RegionGridLayer extends L.GridLayer {
     maxZ: number,
     scale: number,
     originX: number,
-    originY: number,
+    originZ: number,
     strokeStyle: string,
     lineWidth: number,
   ): void {
@@ -181,9 +181,9 @@ export class RegionGridLayer extends L.GridLayer {
     }
 
     for (let z = Math.ceil(minZ / interval) * interval; z <= maxZ; z += interval) {
-      const pixelY = Math.round(-z * scale - originY) + 0.5;
-      context.moveTo(0, pixelY);
-      context.lineTo(this.getTileSize().x, pixelY);
+      const pixelZ = Math.round(z * scale - originZ) + 0.5;
+      context.moveTo(0, pixelZ);
+      context.lineTo(this.getTileSize().x, pixelZ);
     }
 
     context.stroke();
@@ -196,7 +196,7 @@ export class RegionGridLayer extends L.GridLayer {
     minZ: number,
     maxZ: number,
     originX: number,
-    originY: number,
+    originZ: number,
   ): void {
     context.beginPath();
     context.strokeStyle = this.palette.axis;
@@ -209,9 +209,9 @@ export class RegionGridLayer extends L.GridLayer {
     }
 
     if (minZ <= 0 && maxZ >= 0) {
-      const pixelY = Math.round(-originY) + 0.5;
-      context.moveTo(0, pixelY);
-      context.lineTo(this.getTileSize().x, pixelY);
+      const pixelZ = Math.round(-originZ) + 0.5;
+      context.moveTo(0, pixelZ);
+      context.lineTo(this.getTileSize().x, pixelZ);
     }
 
     context.stroke();
@@ -224,11 +224,11 @@ export class RegionGridLayer extends L.GridLayer {
     scale: number,
   ): void {
     const originX = coords.x * tileSize.x;
-    const originY = coords.y * tileSize.y;
+    const originZ = coords.y * tileSize.y;
     const minRegionX = Math.floor(originX / scale / BLOCKS_PER_REGION);
     const maxRegionX = Math.floor((originX + tileSize.x) / scale / BLOCKS_PER_REGION);
-    const minRegionZ = Math.floor(-(originY + tileSize.y) / scale / BLOCKS_PER_REGION);
-    const maxRegionZ = Math.floor(-originY / scale / BLOCKS_PER_REGION);
+    const minRegionZ = Math.floor(originZ / scale / BLOCKS_PER_REGION);
+    const maxRegionZ = Math.floor((originZ + tileSize.y) / scale / BLOCKS_PER_REGION);
 
     context.font = '600 12px Inter, ui-sans-serif, system-ui, sans-serif';
     context.textBaseline = 'top';
@@ -236,7 +236,7 @@ export class RegionGridLayer extends L.GridLayer {
     for (let regionX = minRegionX; regionX <= maxRegionX; regionX += 1) {
       for (let regionZ = minRegionZ; regionZ <= maxRegionZ; regionZ += 1) {
         const x = regionX * BLOCKS_PER_REGION * scale - originX + 9;
-        const y = -(regionZ + 1) * BLOCKS_PER_REGION * scale - originY + 9;
+        const y = regionZ * BLOCKS_PER_REGION * scale - originZ + 9;
 
         if (x < 0 || x >= tileSize.x || y < 0 || y >= tileSize.y) {
           continue;

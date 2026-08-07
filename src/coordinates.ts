@@ -22,11 +22,11 @@ export const blockToChunk = (block: number): number =>
 export const blockToRegion = (block: number): number =>
   Math.floor(block / BLOCKS_PER_REGION);
 
-export const blockToLatLng = (x: number, z: number): LatLngExpression => [z, x];
+export const blockToLatLng = (x: number, z: number): LatLngExpression => [-z, x];
 
 export const latLngToBlock = (position: LatLng): CoordinatePair => ({
   x: Math.floor(position.lng),
-  z: Math.floor(position.lat),
+  z: Math.floor(-position.lat),
 });
 
 export const getRegionBounds = (regionX: number, regionZ: number): RegionBounds => {
@@ -63,6 +63,6 @@ export const getRegionForBlock = (x: number, z: number): CoordinatePair => ({
 
 export const getRegionCenter = (regionX: number, regionZ: number): LatLng =>
   L.latLng(
-    regionZ * BLOCKS_PER_REGION + BLOCKS_PER_REGION / 2,
+    -(regionZ * BLOCKS_PER_REGION + BLOCKS_PER_REGION / 2),
     regionX * BLOCKS_PER_REGION + BLOCKS_PER_REGION / 2,
   );
